@@ -16,8 +16,8 @@ from openai.error import RateLimitError, APIConnectionError, InvalidRequestError
 import gpt_bot.config as config
 
 # Configure logging
-# logging.basicConfig(level=logging.INFO, filename='bot.log', filemode='a')
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, filename='bot.log', filemode='a')
+# logging.basicConfig(level=logging.INFO)
 
 # Initialize bot and dispatcher
 bot = Bot(token=config.TELEGA_TOKEN)
