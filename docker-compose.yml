@@ -1,0 +1,9 @@
+version: '3'
+
+services:
+  mybot:
+    build: .
+    container_name: 'mybot1'
+    restart: always
+    volumes:
+      - .:/GPT_BOT
