@@ -2,18 +2,18 @@ import pprint
 from dataclasses import dataclass, field, asdict
 from typing import List
 
-import openai
-
 from aiogram import Bot, Dispatcher, executor, types
-
+from keyboards import kb_main
 
 import logging
 
+import openai
 from openai import APIError
 from openai.error import RateLimitError, APIConnectionError, InvalidRequestError, AuthenticationError, \
     ServiceUnavailableError, Timeout
 
-import gpt_bot.config as config
+import config as config
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, filename='bot.log', filemode='a')
@@ -30,7 +30,7 @@ async def send_welcome(message: types.Message):
     """
     This handler will be called when user sends `/start` or `/help` command
     """
-    await message.reply("Привет! Я бот chatgpt 3.5. \nИспользую оплаченную подписку")
+    await message.reply("Привет! Я бот chatgpt 3.5. \nИспользую оплаченную подписку", reply_markup=kb_main)
 
 @dp.message_handler(commands=['st', 'status'])
 async def send_status(message: types.Message):
@@ -39,31 +39,13 @@ async def send_status(message: types.Message):
     """
     print('---------------------------')
     pprint.pp(asdict(data))
-    await message.reply(f"Статус выведен в консоль.\n Диалог состоит из {count_symbols(data)} символов ")
+    await message.reply(f"Статус выведен в консоль.\n Диалог состоит из {count_symbols_in_dialog(data)} символов ")
 
-# @dp.message_handler()
-# async def echo(message: types.Message):
-#     res = ''
-#     msg = await message.answer("🔎 Идет загрузка, подождите...")
-    # print(message.text)
-    # last_called = datetime.datetime.now()
-    # throttle_sec = 0.5
-    # for token in theb.Completion.create(message.text):
-    #     res = res + token
-    #     print(res)
-    #     elapsed = datetime.datetime.now() - last_called
-    #     remaining_time = throttle_sec - float(elapsed)
-    #     print(f'last_called={last_called}; elaplsed={elapsed}; remaining_time={remaining_time}')
-    #     if remaining_time > 0:
-    #         last_called = datetime.datetime.now()
-    #         await msg.edit_text(res)
-    # await message.answer(res if res != '' else 'ответа не было')
+@dp.message_handler(commands=['clear'])
+async def clear_messages(message: types.Message):
+    data.messages = []
+    await message.reply(f"Диалог очищен.\n Диалог состоит из {count_symbols_in_dialog(data)} символов ")
 
-    # await msg.edit_text(res)
-        # print(token)
-    # await msg.delete()
-    # bot.delete_message(message.chat.id, msg.message_id)
-    # await message.answer(res)
 
 @dataclass
 class GPTMessage:
@@ -77,13 +59,13 @@ class ChatData:
 
 data = ChatData()
 
-def count_symbols(d: ChatData) -> int:
+def count_symbols_in_dialog(d: ChatData) -> int:
     res = 0
     for m in d.messages:
         res = res + len(m.content)
     return res
 
-def clear_messages(arr : List[GPTMessage], n) -> List[GPTMessage]:
+def correct_messages_number(arr : List[GPTMessage], n) -> List[GPTMessage]:
     total_key2_length = sum(len(d.content) for d in arr)
     i = 0
     while total_key2_length >= n and i < len(arr):
@@ -96,14 +78,13 @@ async def error_answer_and_log(msg:types.Message , text: str):
     logging.error(text)
 
 
-print(data)
 
 @dp.message_handler()
 async def echo(message: types.Message):
     data.messages.append(GPTMessage(role='user', content=message.text))
-    data.messages = clear_messages(data.messages, config.MAX_SYBOLS_IN_CHAT)
+    data.messages = correct_messages_number(data.messages, config.MAX_SYBOLS_IN_CHAT)
     await message.answer(f"""🔎 Идет генерация, подождите...\n
-        <i>Диалог состоит из {count_symbols(data)} символов\n
+        <i>Диалог состоит из {count_symbols_in_dialog(data)} символов\n
         В диалоге {len(data.messages)} реплик</i>\n
         """, parse_mode="HTML")
     messages_list = [asdict(m) for m in data.messages]
@@ -122,7 +103,7 @@ async def echo(message: types.Message):
             Использование токенов {completion['usage']['total_tokens']}
         """)
         logging.info("--------------------------------------------------------------------")
-        logging.info(f"Диалог. Символы - {count_symbols(data)}, реплики: {len(data.messages)}")
+        logging.info(f"Диалог. Символы - {count_symbols_in_dialog(data)}, реплики: {len(data.messages)}")
         logging.info(f"Использовано токенов: {completion['usage']['total_tokens']}")
         logging.info(f"Запрос от {message.from_user['id']}: {message.text[:30]}...")
         logging.info(f"Ответ: {completion.choices[0].message['content'][:30]}...")
@@ -149,26 +130,6 @@ async def echo(message: types.Message):
         await error_answer_and_log(message, err_msg)
 
 
-
-
-# @dp.message_handler()
-# Это через халявный API
-# async def echo(message: types.Message):
-#     data.messages.append(GPTMessage(role='user', content=message.text))
-#     headers = {'Content-Type': 'application/json'}
-#     msg = await message.answer(f"🔎 Идет генерация, подождите... \nДиалог состоит из {count_symbols(data)} символов")
-#     print(f'data={asdict(data)}')
-#     async with aiohttp.ClientSession() as session:
-#         async with session.post(config.OPENAI_API_URL, headers=headers, json=asdict(data)) as resp:
-#             print(resp.status)
-#             json = await resp.json()
-#             # print(json['choices'][0]['message']['content'])
-#             pprint.pp(json)
-#             data.messages.append(
-#                 GPTMessage(role=json['choices'][0]['message']['role'],
-#                            content=json['choices'][0]['message']['content']))
-#             await message.answer(json["choices"][0]["message"]["content"])
-
-
 if __name__ == '__main__':
+    print('bot started...')
     executor.start_polling(dp, skip_updates=True)
