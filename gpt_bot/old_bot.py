@@ -4,8 +4,6 @@ from dataclasses import dataclass, field, asdict
 from typing import List
 
 from aiogram import Bot, Dispatcher, executor, types
-
-from gpt_bot.dialogs import Dialogs
 from main_keyboard import get_main_kb
 
 import logging
@@ -19,38 +17,56 @@ import config as config
 
 
 # Configure logging
-# logging.basicConfig(level=logging.INFO, filename='bot.log', filemode='a')
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, filename='bot.log', filemode='a')
+# logging.basicConfig(level=logging.INFO)
 
 # Initialize bot and dispatcher
 bot = Bot(token=config.TELEGA_TOKEN)
 dp = Dispatcher(bot)
 openai.api_key = config.OPENAI_API_TOKEN
-dialogs = Dialogs()
 
 
 @dp.message_handler(commands=['start', 'help'])
 async def send_welcome(message: types.Message):
-    await message.reply("Hello! I am bot for chatgpt 3.5. \nI am using paid subscription", reply_markup=get_main_kb(message.from_user.id))
+    await message.reply("Привет! Я бот chatgpt 3.5. \nИспользую оплаченную подписку", reply_markup=get_main_kb(message.from_user.id))
 
 @dp.message_handler(commands=['st', 'status'])
 async def send_status(message: types.Message):
     print('---------------------------')
-    await message.reply(f"""
-        Статус выведен в консоль.
-        Id пользователя: {message.from_user.id} 
-        Диалог состоит из {dialogs.get_dialog_tokens_num(message.from_user.id)} токенов 
-        Диалог состоит из {len(dialogs.dialogs[message.from_user.id])}
-    """)
+    pprint.pp(asdict(data))
+    await message.reply(f"Статус выведен в консоль.\n Диалог состоит из {count_symbols_in_dialog(data)} символов ")
 
 @dp.message_handler(commands=['clear'])
 async def clear_messages(message: types.Message):
-    dialogs.clear_dialog(message.from_user.id)
-    await message.reply(f"""
-        Диалог очищен.
-        Id пользователя: {message.from_user.id} 
-        Диалог состоит из {dialogs.get_dialog_tokens_num(message.from_user.id)} токенов\n
-    """)
+    data.messages = []
+    await message.reply(f"Диалог очищен.\n Диалог состоит из {count_symbols_in_dialog(data)} символов ")
+
+
+@dataclass
+class GPTMessage:
+    role: str
+    content: str
+
+@dataclass
+class ChatData:
+    model: str = 'gpt-3.5-turbo'
+    messages: List[GPTMessage] = field(default_factory=list)
+
+data = ChatData()
+
+def count_symbols_in_dialog(d: ChatData) -> int:
+    res = 0
+    for m in d.messages:
+        res = res + len(m.content)
+    return res
+
+def correct_messages_number(arr : List[GPTMessage], n) -> List[GPTMessage]:
+    total_key2_length = sum(len(d.content) for d in arr)
+    i = 0
+    while total_key2_length >= n and i < len(arr):
+        total_key2_length -= len(arr[i].content)
+        i += 1
+    return arr[i:]
 
 async def error_answer_and_log(msg:types.Message , text: str):
     await msg.answer(text)
@@ -60,13 +76,16 @@ async def error_answer_and_log(msg:types.Message , text: str):
 
 @dp.message_handler()
 async def echo(message: types.Message):
-    dialogs.append_message('user', message.text, message.from_user.id)
+    data.messages.append(GPTMessage(role='user', content=message.text))
+    data.messages = correct_messages_number(data.messages, config.MAX_SYBOLS_IN_CHAT)
     msg = await message.answer(f"""🔎 Идет генерация, подождите...\n
+        <i>Диалог состоит из {count_symbols_in_dialog(data)} символов\n
+        В диалоге {len(data.messages)} реплик</i>\n
         """, parse_mode="HTML")
-    messages_list = dialogs.get_gpt_messages_for_dialog(message.from_user.id)
+    messages_list = [asdict(m) for m in data.messages]
     try:
         completion: openai.ChatCompletion = openai.ChatCompletion.create(
-            model=dialogs.model,
+            model=data.model,
             messages=messages_list,
             stream = True
         )
@@ -85,10 +104,12 @@ async def echo(message: types.Message):
                     begin_time = current_time
 
         await msg.edit_text(f'{answer} \n ---------------------')
-        dialogs.append_message(role, answer, message.from_user.id)
+        data.messages.append(
+            GPTMessage(role=role, content=answer)
+        )
 
         logging.info("--------------------------------------------------------------------")
-        logging.info(f"Диалог. Токены - {dialogs.get_dialog_tokens_num(message.from_user.id)}, реплики: {len(dialogs.dialogs[message.from_user.id])}")
+        logging.info(f"Диалог. Символы - {count_symbols_in_dialog(data)}, реплики: {len(data.messages)}")
         logging.info(f"Запрос от {message.from_user['id']}: {message.text[:30]}...")
         logging.info(f"Ответ: {answer[:30]}...")
     except APIError as e:
