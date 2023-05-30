@@ -1,11 +1,10 @@
-import pprint
+import os
 import time
-from dataclasses import dataclass, field, asdict
-from typing import List
+import textwrap
 
 from aiogram import Bot, Dispatcher, executor, types
 
-from gpt_bot.dialogs import Dialogs
+from dialogs import Dialogs
 from main_keyboard import get_main_kb
 
 import logging
@@ -19,8 +18,10 @@ import config as config
 
 
 # Configure logging
-# logging.basicConfig(level=logging.INFO, filename='bot.log', filemode='a')
-logging.basicConfig(level=logging.INFO)
+if 'DOCKER_CONTAINER' in os.environ:
+    logging.basicConfig(level=logging.INFO, filename='bot.log', filemode='a')
+else:
+    logging.basicConfig(level=logging.INFO)
 
 # Initialize bot and dispatcher
 bot = Bot(token=config.TELEGA_TOKEN)
@@ -31,39 +32,60 @@ dialogs = Dialogs()
 
 @dp.message_handler(commands=['start', 'help'])
 async def send_welcome(message: types.Message):
-    await message.reply("Hello! I am bot for chatgpt 3.5. \nI am using paid subscription", reply_markup=get_main_kb(message.from_user.id))
+    m = "Hello! I am bot for chatgpt 3.5. \nI am using paid subscription"
+    if 'DOCKER_CONTAINER' in os.environ:
+        m += "\nRun in docker"
+    else:
+        m += '\nRun in dev mode'
+    await message.reply(m, reply_markup=get_main_kb(message.from_user.id))
 
 @dp.message_handler(commands=['st', 'status'])
 async def send_status(message: types.Message):
     print('---------------------------')
-    await message.reply(f"""
-        Статус выведен в консоль.
-        Id пользователя: {message.from_user.id} 
-        Диалог состоит из {dialogs.get_dialog_tokens_num(message.from_user.id)} токенов 
-        Диалог состоит из {len(dialogs.dialogs[message.from_user.id])}
-    """)
+    d = dialogs.get_dialog(message.from_user.id)
+    if d is None:
+        await message.reply(textwrap.dedent(f"""
+        Вы еще на начали диалог.
+        Id пользователя: {message.from_user.id}
+        """))
+    else:
+        await message.reply(textwrap.dedent(f"""
+            Статус выведен в консоль.
+            Id пользователя: {message.from_user.id} 
+            Диалог состоит из {d.total_tokens_num()} токенов 
+            Диалог состоит из {len(d)} реплик
+        """))
 
 @dp.message_handler(commands=['clear'])
 async def clear_messages(message: types.Message):
-    dialogs.clear_dialog(message.from_user.id)
-    await message.reply(f"""
-        Диалог очищен.
-        Id пользователя: {message.from_user.id} 
-        Диалог состоит из {dialogs.get_dialog_tokens_num(message.from_user.id)} токенов\n
-    """)
+    d = dialogs.get_dialog(message.from_user.id)
+    if d is None:
+        await message.reply(textwrap.dedent(f"""
+        Вы еще на начали диалог.
+        Id пользователя: {message.from_user.id}
+        """))
+    else:
+        d.empty_messages()
+        await message.reply(textwrap.dedent(f"""
+            Диалог очищен.
+            Id пользователя: {message.from_user.id} 
+            Диалог состоит из {d.total_tokens_num()} токенов\n
+        """))
 
 async def error_answer_and_log(msg:types.Message , text: str):
     await msg.answer(text)
     logging.error(text)
 
-
-
 @dp.message_handler()
 async def echo(message: types.Message):
-    dialogs.append_message('user', message.text, message.from_user.id)
+    d = dialogs.get_dialog(message.from_user.id)
+    if d is None:
+        d = dialogs.create_dialog(message.from_user.id)
+    d.append_message('user', message.text)
     msg = await message.answer(f"""🔎 Идет генерация, подождите...\n
         """, parse_mode="HTML")
-    messages_list = dialogs.get_gpt_messages_for_dialog(message.from_user.id)
+    messages_list = d.get_messages()
+    print(messages_list)
     try:
         completion: openai.ChatCompletion = openai.ChatCompletion.create(
             model=dialogs.model,
@@ -85,12 +107,13 @@ async def echo(message: types.Message):
                     begin_time = current_time
 
         await msg.edit_text(f'{answer} \n ---------------------')
-        dialogs.append_message(role, answer, message.from_user.id)
+        d.append_message(role, answer)
 
         logging.info("--------------------------------------------------------------------")
-        logging.info(f"Диалог. Токены - {dialogs.get_dialog_tokens_num(message.from_user.id)}, реплики: {len(dialogs.dialogs[message.from_user.id])}")
+        logging.info(f"Диалог. Токены - {d.total_tokens_num()}, реплики: {len(d)}")
         logging.info(f"Запрос от {message.from_user['id']}: {message.text[:30]}...")
-        logging.info(f"Ответ: {answer[:30]}...")
+        corrected_answer = answer[:30].replace('\n', ' ')
+        logging.info(f"Ответ: {corrected_answer}...")
     except APIError as e:
         err_msg = f"Произошла ошибка API Error: {e}. Попробуйте задать вопрос снова"
         await error_answer_and_log(message, err_msg)

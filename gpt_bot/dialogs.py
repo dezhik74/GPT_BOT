@@ -1,10 +1,8 @@
 
-import pprint
-from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 
-from gpt_bot.config import MAX_TOKENS_IN_DIALOG
-from gpt_bot.tokens_num import num_tokens_from_message
+from config import MAX_TOKENS_IN_DIALOG
+from tokens_num import num_tokens_from_message
 
 
 class GPTMessage:
