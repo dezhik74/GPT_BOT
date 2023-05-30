@@ -18,7 +18,7 @@ import config as config
 
 
 # Configure logging
-if 'DOCKER_CONTAINER' in os.environ:
+if config.IN_DOCKER:
     logging.basicConfig(level=logging.INFO, filename='bot.log', filemode='a')
 else:
     logging.basicConfig(level=logging.INFO)
@@ -33,7 +33,7 @@ dialogs = Dialogs()
 @dp.message_handler(commands=['start', 'help'])
 async def send_welcome(message: types.Message):
     m = "Hello! I am bot for chatgpt 3.5. \nI am using paid subscription"
-    if 'DOCKER_CONTAINER' in os.environ:
+    if config.IN_DOCKER:
         m += "\nRun in docker"
     else:
         m += '\nRun in dev mode'

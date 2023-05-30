@@ -10,3 +10,5 @@ MAX_TOKENS_IN_DIALOG = 4096
 
 admin_ids = [539952792]
 
+IN_DOCKER = config('IN_DOCKER', cast=bool)
+
