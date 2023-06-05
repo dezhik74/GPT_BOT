@@ -1,8 +1,8 @@
 
 from typing import List, Dict, Optional
 
-from config import MAX_TOKENS_IN_DIALOG
-from tokens_num import num_tokens_from_message
+from gpt_bot import settings
+from gpt_bot.tokens_num import num_tokens_from_message
 
 
 class GPTMessage:
@@ -33,14 +33,14 @@ class Dialog:
             res = res + m.tokens_num
         return res
 
-    def clear_messages(self, max_tokens: int = MAX_TOKENS_IN_DIALOG):
+    def clear_messages(self, max_tokens: int = settings.MAX_TOKENS_IN_DIALOG):
         while self.total_tokens_num() >= max_tokens:
             del self.messages[0]
 
     def get_messages(self) -> List[Dict]:
         return [ {'role': m.role, 'content': m.content} for m in self.messages ]
 
-    def append_message(self, role: str, message: str, max_tokens: int = MAX_TOKENS_IN_DIALOG):
+    def append_message(self, role: str, message: str, max_tokens: int = settings.MAX_TOKENS_IN_DIALOG):
         self.messages.append(GPTMessage(role, message))
         self.clear_messages(max_tokens)
 
@@ -71,7 +71,7 @@ class Dialogs:
                 return d
         return None
 
-    def append_message_to_dialog(self, role: str, message: str, telega_id: int, max_tokens: int = MAX_TOKENS_IN_DIALOG):
+    def append_message_to_dialog(self, role: str, message: str, telega_id: int, max_tokens: int = settings.MAX_TOKENS_IN_DIALOG):
         d = self.get_dialog(telega_id)
         if d is None:
             d = self.create_dialog(telega_id)

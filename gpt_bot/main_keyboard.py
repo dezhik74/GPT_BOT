@@ -1,6 +1,6 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 
-from config import admin_ids
+from gpt_bot import settings
 
 
 def get_main_kb (telega_id: int):
@@ -12,7 +12,7 @@ def get_main_kb (telega_id: int):
     kb_main = ReplyKeyboardMarkup(resize_keyboard=True)
 
     kb_main.row(b1, b2, b3)
-    if telega_id in admin_ids:
+    if telega_id in settings.admin_ids:
         kb_main.add(b4)
 
     return kb_main

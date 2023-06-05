@@ -4,9 +4,6 @@ import textwrap
 
 from aiogram import Bot, Dispatcher, executor, types
 
-from dialogs import Dialogs
-from main_keyboard import get_main_kb
-
 import logging
 
 import openai
@@ -14,63 +11,59 @@ from openai import APIError
 from openai.error import RateLimitError, APIConnectionError, InvalidRequestError, AuthenticationError, \
     ServiceUnavailableError, Timeout
 
-import config as config
+from gpt_bot.dialogs import Dialogs
+from gpt_bot.main_keyboard import get_main_kb
+from gpt_bot import settings
+from gpt_bot.templates import render_template
 
-
-# Configure logging
-if config.IN_DOCKER:
+# settings logging
+if settings.IN_DOCKER:
     logging.basicConfig(level=logging.INFO, filename='bot.log', filemode='a')
 else:
     logging.basicConfig(level=logging.INFO)
 
 # Initialize bot and dispatcher
-bot = Bot(token=config.TELEGA_TOKEN)
+bot = Bot(token=settings.TELEGA_TOKEN)
 dp = Dispatcher(bot)
-openai.api_key = config.OPENAI_API_TOKEN
+openai.api_key = settings.OPENAI_API_TOKEN
 dialogs = Dialogs()
 
 
 @dp.message_handler(commands=['start', 'help'])
 async def send_welcome(message: types.Message):
-    m = "Hello! I am bot for chatgpt 3.5. \nI am using paid subscription"
-    if config.IN_DOCKER:
-        m += "\nRun in docker"
-    else:
-        m += '\nRun in dev mode'
+    m = render_template('help.j2', {'in_docker': settings.IN_DOCKER})
     await message.reply(m, reply_markup=get_main_kb(message.from_user.id))
 
 @dp.message_handler(commands=['st', 'status'])
 async def send_status(message: types.Message):
-    print('---------------------------')
     d = dialogs.get_dialog(message.from_user.id)
+    if not settings.IN_DOCKER:
+        print('---------------------------')
+        for replica in d.messages:
+            print('role: ', replica.role)
+            print('message: ', replica.content)
+            print('tokens: ', replica.tokens_num)
+            print('---------------------------')
     if d is None:
-        await message.reply(textwrap.dedent(f"""
-        Вы еще на начали диалог.
-        Id пользователя: {message.from_user.id}
-        """))
+        await message.reply(render_template('not_dialog.j2', {'user_id': message.from_user.id}))
     else:
-        await message.reply(textwrap.dedent(f"""
-            Статус выведен в консоль.
-            Id пользователя: {message.from_user.id} 
-            Диалог состоит из {d.total_tokens_num()} токенов 
-            Диалог состоит из {len(d)} реплик
-        """))
+        await message.reply(render_template('status.j2', {
+            'user_id': message.from_user.id,
+            'total_tokens': d.total_tokens_num(),
+            'total_replies': len(d)
+        }))
 
 @dp.message_handler(commands=['clear'])
 async def clear_messages(message: types.Message):
     d = dialogs.get_dialog(message.from_user.id)
     if d is None:
-        await message.reply(textwrap.dedent(f"""
-        Вы еще на начали диалог.
-        Id пользователя: {message.from_user.id}
-        """))
+        await message.reply(render_template('not_dialog.j2', {'user_id': message.from_user.id}))
     else:
         d.empty_messages()
-        await message.reply(textwrap.dedent(f"""
-            Диалог очищен.
-            Id пользователя: {message.from_user.id} 
-            Диалог состоит из {d.total_tokens_num()} токенов\n
-        """))
+        await message.reply(render_template('dialog_cleared.j2',{
+            'user_id': message.from_user.id,
+            'total_tokens': d.total_tokens_num()
+        }))
 
 async def error_answer_and_log(msg:types.Message , text: str):
     await msg.answer(text)
@@ -85,7 +78,7 @@ async def echo(message: types.Message):
     msg = await message.answer(f"""🔎 Идет генерация, подождите...\n
         """, parse_mode="HTML")
     messages_list = d.get_messages()
-    print(messages_list)
+    # print(messages_list)
     try:
         completion: openai.ChatCompletion = openai.ChatCompletion.create(
             model=dialogs.model,
