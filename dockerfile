@@ -4,6 +4,12 @@ FROM python:3.8-slim-buster
 # Копируем файлы проекта в рабочую директорию контейнера
 COPY . /GPT_BOT
 
+# Устанавливаем ffmpeg
+RUN apt-get -y update
+RUN apt-get -y upgrade
+RUN apt-get install -y ffmpeg
+
+
 # Установка curl
 #RUN apt-get update && apt-get install -y curl
 
