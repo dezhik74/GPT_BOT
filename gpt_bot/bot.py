@@ -36,7 +36,7 @@ dialogs = Dialogs()
 @dp.message_handler(commands=['start', 'help'])
 async def send_welcome(message: types.Message):
     m = render_template('help.j2', {'in_docker': settings.IN_DOCKER})
-    await message.reply(m, reply_markup=get_main_kb(message.from_user.id))
+    await message.reply(m, reply_markup=get_main_kb(message.from_user.id), parse_mode='HTML')
 
 @dp.message_handler(commands=['st', 'status'])
 async def send_status(message: types.Message):
@@ -55,7 +55,7 @@ async def send_status(message: types.Message):
             'user_id': message.from_user.id,
             'total_tokens': d.total_tokens_num(),
             'total_replies': len(d)
-        }))
+        }), parse_mode='HTML')
 
 @dp.message_handler(commands=['clear'])
 async def clear_messages(message: types.Message):
@@ -72,19 +72,22 @@ async def clear_messages(message: types.Message):
 @dp.message_handler(commands=['dialogs'])
 async def dialogs_info(message: types.Message):
     info = dialogs.get_dialogs_info()
-    await message.reply(render_template('dialogs_info.j2', {'info': info}))
+    await message.reply(render_template('dialogs_info.j2', {'info': info}), parse_mode="HTML")
 
 async def error_answer_and_log(msg:types.Message , text: str):
     await msg.answer(text)
     logging.error(text)
 
 @dp.message_handler()
-async def echo(message: types.Message):
-    d = dialogs.get_dialog(message.from_user.id)
+async def text_handler(message: types.Message):
+    await create_answer(message, message.from_user.id, message.text)
+
+async def create_answer(msg_for_answer: types.Message, user_id: int, question_text: str):
+    d = dialogs.get_dialog(user_id)
     if d is None:
-        d = dialogs.create_dialog(message.from_user.id)
-    d.append_message('user', message.text)
-    msg = await message.answer("🔎 Идет генерация, подождите...")
+        d = dialogs.create_dialog(user_id)
+    d.append_message('user', question_text)
+    msg = await msg_for_answer.answer("🔎 Идет генерация, подождите...")
     messages_list = d.get_messages()
     try:
         completion: openai.ChatCompletion = openai.ChatCompletion.create(
@@ -111,30 +114,30 @@ async def echo(message: types.Message):
         regexp = '\.\d*$'
         logging.info(f"{re.sub(regexp, '', datetime.now().__str__())}-------------------------------------------------")
         logging.info(f"Диалог. Токены - {d.total_tokens_num()}, реплики: {len(d)}")
-        logging.info(f"Запрос от {message.from_user['id']}: {message.text[:30]}...")
+        logging.info(f"Запрос от {user_id}: {question_text}...")
         corrected_answer = answer[:30].replace('\n', ' ')
         logging.info(f"Ответ: {corrected_answer}...")
     except APIError as e:
         err_msg = f"Произошла ошибка API Error: {e}. Попробуйте задать вопрос снова"
-        await error_answer_and_log(message, err_msg)
+        await error_answer_and_log(msg_for_answer, err_msg)
     except Timeout as e:
         err_msg = f"Произошла ошибка Timeout Error: {e} Попробуйте задать вопрос снова"
-        await error_answer_and_log(message, err_msg)
+        await error_answer_and_log(msg_for_answer, err_msg)
     except RateLimitError as e:
         err_msg=f"Произошла ошибка Rate Limit Error: {e} Попробуйте задавать вопросы пореже"
-        await error_answer_and_log(message, err_msg)
+        await error_answer_and_log(msg_for_answer, err_msg)
     except APIConnectionError as e:
         err_msg=f"Произошла ошибка Connection Error: {e} Проверьте подключение к сети"
-        await error_answer_and_log(message, err_msg)
+        await error_answer_and_log(msg_for_answer, err_msg)
     except InvalidRequestError as e:
         err_msg=f"Произошла ошибка Invalid Request Error: {e} Программист что-то накосячил. Сообщите об этом ему"
-        await error_answer_and_log(message, err_msg)
+        await error_answer_and_log(msg_for_answer, err_msg)
     except AuthenticationError as e:
         err_msg=f"Произошла ошибка Authentication Error: {e} Программист накосячил с ключами. Сообщите об этом ему"
-        await error_answer_and_log(message, err_msg)
+        await error_answer_and_log(msg_for_answer, err_msg)
     except ServiceUnavailableError as e:
         err_msg=f"Произошла ошибка Service Unavailable Error: {e} Сервис OpenAI недоступен. Надо подождать."
-        await error_answer_and_log(message, err_msg)
+        await error_answer_and_log(msg_for_answer, err_msg)
 
 @dp.message_handler(content_types=[ContentType.VOICE])
 async def voice_handler(message:types.Message):
@@ -152,6 +155,7 @@ async def voice_handler(message:types.Message):
     transcript = openai.Audio.transcribe("whisper-1", audio_for_gpt)
     os.remove(mp3_file.name)
     await msg.edit_text(transcript.text)
+    await create_answer(message, message.from_user.id, transcript.text)
 
 
 

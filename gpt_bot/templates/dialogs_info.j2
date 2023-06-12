@@ -1,7 +1,7 @@
 {% if info %}
     {% for item in info %}
-        Юзер: {{item.id}}. Токенов: {{item.tokens}}, реплик: {{item.replicas}}
+        <u>Юзер: {{item.id}}</u>. Токенов: {{item.tokens}}, реплик: {{item.replicas}}<br>
     {% endfor %}
 {% else %}
-    Нет диалогов
+    Нет диалогов<br>
 {% endif %}
