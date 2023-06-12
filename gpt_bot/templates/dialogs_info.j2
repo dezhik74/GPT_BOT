@@ -1,0 +1,7 @@
+{% if info %}
+    {% for item in info %}
+        Юзер: {{item.id}}. Токенов: {{item.tokens}}, реплик: {{item.replicas}}
+    {% endfor %}
+{% else %}
+    Нет диалогов
+{% endif %}

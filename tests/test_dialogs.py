@@ -37,7 +37,7 @@ def test_dialog_append(dialogs):
     assert d3 is None
 
 def test_append_more_than_max(dialogs):
-    # тест вставки в диалог, если превышен макс. размер по токенам
+    # Тест вставки в диалог, если превышен макс. размер по токенам
     # первый диалог - добавляем с max_tokens = 45, должен удалиться нулевой message
     dialogs.append_message_to_dialog('user', 'something else', 1, max_tokens=45)
     d1 = dialogs.get_dialog(1)
@@ -56,5 +56,10 @@ def test_empty_messages(dialogs):
     d1.empty_messages()
     assert len(d1) == 0
     assert d1.total_tokens_num() == 0
+
+def test_dialogs_info(dialogs):
+    d_info = dialogs.get_dialogs_info()
+    assert d_info == [{'id': 1, 'tokens': 0, 'replicas': 0}, {'id': 123, 'tokens': 13, 'replicas': 1}]
+
 
 

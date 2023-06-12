@@ -77,6 +77,13 @@ class Dialogs:
             d = self.create_dialog(telega_id)
         d.append_message(role, message, max_tokens)
 
+    def get_dialogs_info(self) -> List[Dialog]:
+        res: List[Dialog] = []
+        for d in self.dialogs:
+            res.append({'id': d.telega_id, 'tokens': d.total_tokens_num(), 'replicas': len(d.messages)})
+        return res
+
+
 
 
 
