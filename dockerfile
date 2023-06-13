@@ -1,5 +1,5 @@
 # Устанавливаем базовый образ
-FROM python:3.8-slim-buster
+FROM python:3.10-slim-bullseye
 
 # Копируем файлы проекта в рабочую директорию контейнера
 COPY . /GPT_BOT
