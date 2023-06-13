@@ -3,19 +3,17 @@ import re
 import time
 from datetime import datetime
 from tempfile import NamedTemporaryFile
-
-from aiogram import Bot, Dispatcher, executor, types
-
 import logging
 
 import openai
+
+from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ContentType
-from openai import APIError
-from openai.error import RateLimitError, APIConnectionError, InvalidRequestError, AuthenticationError, \
-    ServiceUnavailableError, Timeout
+
 from pydub import AudioSegment
 
 from gpt_bot.dialogs import Dialogs
+from gpt_bot.gpt_errors import GPTErrors, handle_gpt_errors
 from gpt_bot.main_keyboard import get_main_kb
 from gpt_bot import settings
 from gpt_bot.templates import render_template
@@ -74,10 +72,6 @@ async def dialogs_info(message: types.Message):
     info = dialogs.get_dialogs_info()
     await message.reply(render_template('dialogs_info.j2', {'info': info}), parse_mode="HTML")
 
-async def error_answer_and_log(msg:types.Message , text: str):
-    await msg.answer(text)
-    logging.error(text)
-
 @dp.message_handler()
 async def text_handler(message: types.Message):
     await create_answer(message, message.from_user.id, message.text)
@@ -117,27 +111,9 @@ async def create_answer(msg_for_answer: types.Message, user_id: int, question_te
         logging.info(f"Запрос от {user_id}: {question_text}...")
         corrected_answer = answer[:30].replace('\n', ' ')
         logging.info(f"Ответ: {corrected_answer}...")
-    except APIError as e:
-        err_msg = f"Произошла ошибка API Error: {e}. Попробуйте задать вопрос снова"
-        await error_answer_and_log(msg_for_answer, err_msg)
-    except Timeout as e:
-        err_msg = f"Произошла ошибка Timeout Error: {e} Попробуйте задать вопрос снова"
-        await error_answer_and_log(msg_for_answer, err_msg)
-    except RateLimitError as e:
-        err_msg=f"Произошла ошибка Rate Limit Error: {e} Попробуйте задавать вопросы пореже"
-        await error_answer_and_log(msg_for_answer, err_msg)
-    except APIConnectionError as e:
-        err_msg=f"Произошла ошибка Connection Error: {e} Проверьте подключение к сети"
-        await error_answer_and_log(msg_for_answer, err_msg)
-    except InvalidRequestError as e:
-        err_msg=f"Произошла ошибка Invalid Request Error: {e} Программист что-то накосячил. Сообщите об этом ему"
-        await error_answer_and_log(msg_for_answer, err_msg)
-    except AuthenticationError as e:
-        err_msg=f"Произошла ошибка Authentication Error: {e} Программист накосячил с ключами. Сообщите об этом ему"
-        await error_answer_and_log(msg_for_answer, err_msg)
-    except ServiceUnavailableError as e:
-        err_msg=f"Произошла ошибка Service Unavailable Error: {e} Сервис OpenAI недоступен. Надо подождать."
-        await error_answer_and_log(msg_for_answer, err_msg)
+    except GPTErrors as e:
+        await handle_gpt_errors(e, msg_for_answer)
+
 
 @dp.message_handler(content_types=[ContentType.VOICE])
 async def voice_handler(message:types.Message):
@@ -152,16 +128,14 @@ async def voice_handler(message:types.Message):
     ogg_voice.export(mp3_file.name, format='mp3')
     audio_for_gpt = open(mp3_file.name, 'rb')
     msg = await message.answer("🔎 Идет распознавание, подождите...")
-    transcript = openai.Audio.transcribe("whisper-1", audio_for_gpt)
+    try:
+        transcript = openai.Audio.transcribe("whisper-1", audio_for_gpt)
+    except GPTErrors as e:
+        await handle_gpt_errors(e, message)
+        return
     os.remove(mp3_file.name)
     await msg.edit_text(transcript.text)
     await create_answer(message, message.from_user.id, transcript.text)
-
-
-
-
-
-
 
 if __name__ == '__main__':
     print('bot started...')
