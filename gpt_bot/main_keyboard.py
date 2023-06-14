@@ -1,4 +1,5 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardButton, \
+    InlineKeyboardMarkup
 
 from gpt_bot import settings
 
@@ -18,5 +19,10 @@ def get_main_kb (telega_id: int):
         kb_main.add(b4, b4a, b5)
 
     return kb_main
+
+def get_translate_kb():
+    inline_btn_1 = InlineKeyboardButton('Переведи!', callback_data='translate_btn')
+    inline_kb1 = InlineKeyboardMarkup().add(inline_btn_1)
+    return inline_kb1
 
 

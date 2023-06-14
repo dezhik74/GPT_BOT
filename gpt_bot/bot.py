@@ -14,9 +14,10 @@ from pydub import AudioSegment
 
 from gpt_bot.dialogs import Dialogs
 from gpt_bot.gpt_errors import GPTErrors, handle_gpt_errors
-from gpt_bot.main_keyboard import get_main_kb
+from gpt_bot.main_keyboard import get_main_kb, get_translate_kb
 from gpt_bot import settings
 from gpt_bot.templates import render_template
+from gpt_bot.utils import english_letter_percentage
 
 # settings logging
 if settings.IN_DOCKER:
@@ -72,6 +73,12 @@ async def dialogs_info(message: types.Message):
     info = dialogs.get_dialogs_info()
     await message.reply(render_template('dialogs_info.j2', {'info': info}), parse_mode="HTML")
 
+@dp.callback_query_handler(lambda c: c.data == 'translate_btn')
+async def process_callback_button1(callback_query: types.CallbackQuery):
+    msg = await bot.send_message(callback_query.from_user.id, '⬇⬇⬇Перевод на русский⬇⬇⬇')
+    await create_answer(msg, callback_query.from_user.id,"Please, translate it to Russian")
+    await bot.answer_callback_query(callback_query.id)
+
 @dp.message_handler()
 async def text_handler(message: types.Message):
     await create_answer(message, message.from_user.id, message.text)
@@ -103,7 +110,10 @@ async def create_answer(msg_for_answer: types.Message, user_id: int, question_te
                     await msg.edit_text(answer)
                     begin_time = current_time
 
-        await msg.edit_text(f'{answer} \n ---------------------')
+        if english_letter_percentage(answer) > 50:
+            await msg.edit_text(f'{answer} \n ---------------------', reply_markup=get_translate_kb())
+        else:
+            await msg.edit_text(f'{answer} \n ---------------------')
         d.append_message(role, answer)
         regexp = '\.\d*$'
         logging.info(f"{re.sub(regexp, '', datetime.now().__str__())}-------------------------------------------------")
