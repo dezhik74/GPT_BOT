@@ -17,7 +17,7 @@ from gpt_bot.gpt_errors import GPTErrors, handle_gpt_errors
 from gpt_bot.main_keyboard import get_main_kb, get_translate_kb
 from gpt_bot import settings
 from gpt_bot.templates import render_template
-from gpt_bot.utils import english_letter_percentage
+from gpt_bot.utils import english_letter_percentage, russian_letters_percent, pre_tag
 
 # settings logging
 if settings.IN_DOCKER:
@@ -110,10 +110,14 @@ async def create_answer(msg_for_answer: types.Message, user_id: int, question_te
                     await msg.edit_text(answer)
                     begin_time = current_time
 
-        if english_letter_percentage(answer) > 50:
-            await msg.edit_text(f'{answer} \n ---------------------', reply_markup=get_translate_kb())
-        else:
+        # добавляем мониширинный текст, если в ответе есть код
+        # answer = pre_tag(answer)
+
+        # добавление кнопки перевода на русский язык
+        if russian_letters_percent(answer) > 50:
             await msg.edit_text(f'{answer} \n ---------------------')
+        else:
+            await msg.edit_text(f'{answer} \n ---------------------', reply_markup=get_translate_kb())
         d.append_message(role, answer)
         regexp = '\.\d*$'
         logging.info(f"{re.sub(regexp, '', datetime.now().__str__())}-------------------------------------------------")
