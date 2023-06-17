@@ -9,6 +9,7 @@ import openai
 
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import ContentType
+from aiogram.utils.exceptions import CantParseEntities
 
 from pydub import AudioSegment
 
@@ -110,21 +111,28 @@ async def create_answer(msg_for_answer: types.Message, user_id: int, question_te
                     await msg.edit_text(answer)
                     begin_time = current_time
 
-        # добавляем мониширинный текст, если в ответе есть код
-        # answer = pre_tag(answer)
+        # добавляем теги pre, если в ответе есть код
+        answer = pre_tag(answer)
 
         # добавление кнопки перевода на русский язык
-        if russian_letters_percent(answer) > 50:
-            await msg.edit_text(f'{answer} \n ---------------------')
-        else:
-            await msg.edit_text(f'{answer} \n ---------------------', reply_markup=get_translate_kb())
+        answer_reply_markup = None if russian_letters_percent(answer) > 50 else get_translate_kb()
+
+        # парсим ответ в HTML, если ошибка, то отвечаем без парсера
+        try:
+            await msg.edit_text(f'{answer} \n ---------------------', parse_mode='HTML', reply_markup=answer_reply_markup)
+        except CantParseEntities:
+            logging.error('error in parsing')
+            await msg.edit_text(f'{answer} \n ---------------------', reply_markup=answer_reply_markup)
+
         d.append_message(role, answer)
+
         regexp = '\.\d*$'
         logging.info(f"{re.sub(regexp, '', datetime.now().__str__())}-------------------------------------------------")
         logging.info(f"Диалог. Токены - {d.total_tokens_num()}, реплики: {len(d)}")
         logging.info(f"Запрос от {user_id}: {question_text}...")
         corrected_answer = answer[:30].replace('\n', ' ')
         logging.info(f"Ответ: {corrected_answer}...")
+
     except GPTErrors as e:
         await handle_gpt_errors(e, msg_for_answer)
 

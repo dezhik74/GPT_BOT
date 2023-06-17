@@ -24,8 +24,9 @@ def russian_letters_percent(input_str):
 def pre_tag(input_str):
     result_str = ''
     open_pre_count = 0
-    for i in range(len(input_str)):
-        if input_str[i:i+3] == "'''":
+    i = 0
+    while i < len(input_str):
+        if input_str[i:i+3] == "```":
             open_pre_count += 1
             if open_pre_count % 2 != 0:
                 result_str += '<pre>'
@@ -34,6 +35,7 @@ def pre_tag(input_str):
             i += 2
         else:
             result_str += input_str[i]
+        i += 1
     if open_pre_count % 2 != 0:
         result_str += '</pre>'  # Добавляем закрывающий тег, если необходимо
     return result_str
