@@ -108,7 +108,8 @@ async def create_answer(msg_for_answer: types.Message, user_id: int, question_te
                 answer = answer + chunk['choices'][0]['delta']['content']
                 current_time = time.time()
                 if current_time - begin_time > 2:
-                    await msg.edit_text(answer)
+                    if answer:
+                        await msg.edit_text(answer)
                     begin_time = current_time
 
         # добавляем теги pre, если в ответе есть код
