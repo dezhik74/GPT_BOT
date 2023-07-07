@@ -51,7 +51,7 @@ class Dialogs:
     model: str
     dialogs: List[Dialog]
 
-    def __init__(self, new_model: str = 'gpt-3.5-turbo-0301', new_dialogs: List[Dialog] = []):
+    def __init__(self, new_model: str = 'gpt-4-0613', new_dialogs: List[Dialog] = []):
         self.model = new_model
         self.dialogs = new_dialogs
 
