@@ -17,6 +17,7 @@ from gpt_bot.dialogs import Dialogs
 from gpt_bot.gpt_errors import GPTErrors, handle_gpt_errors
 from gpt_bot.main_keyboard import get_main_kb, get_translate_kb
 from gpt_bot import settings
+from gpt_bot.settings import GPT_VERSION
 from gpt_bot.templates import render_template
 from gpt_bot.utils import english_letter_percentage, russian_letters_percent, pre_tag
 
@@ -35,7 +36,7 @@ dialogs = Dialogs()
 
 @dp.message_handler(commands=['start', 'help'])
 async def send_welcome(message: types.Message):
-    m = render_template('help.j2', {'in_docker': settings.IN_DOCKER})
+    m = render_template('help.j2', {'in_docker': settings.IN_DOCKER, 'gpt_version': GPT_VERSION})
     await message.reply(m, reply_markup=get_main_kb(message.from_user.id), parse_mode='HTML')
 
 @dp.message_handler(commands=['st', 'status'])

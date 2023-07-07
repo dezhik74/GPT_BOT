@@ -3,11 +3,13 @@ import pprint
 import pytest
 
 from gpt_bot.dialogs import Dialogs
+from gpt_bot.settings import GPT_VERSION
+
 
 def test_dialogs_create():
     ds = Dialogs()
     assert len(ds) == 0
-    assert ds.model == 'gpt-3.5-turbo-0301'
+    assert ds.model == GPT_VERSION
 
 @pytest.fixture(scope='module')
 def dialogs():

@@ -2,6 +2,7 @@
 from typing import List, Dict, Optional
 
 from gpt_bot import settings
+from gpt_bot.settings import GPT_VERSION
 from gpt_bot.tokens_num import num_tokens_from_message
 
 
@@ -51,7 +52,7 @@ class Dialogs:
     model: str
     dialogs: List[Dialog]
 
-    def __init__(self, new_model: str = 'gpt-4-0613', new_dialogs: List[Dialog] = []):
+    def __init__(self, new_model: str = GPT_VERSION, new_dialogs: List[Dialog] = []):
         self.model = new_model
         self.dialogs = new_dialogs
 
