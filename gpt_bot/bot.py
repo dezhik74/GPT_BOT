@@ -13,7 +13,7 @@ from aiogram.utils.exceptions import CantParseEntities
 
 from pydub import AudioSegment
 
-from gpt_bot.dialogs import Dialogs
+from dialogs import Dialogs
 from gpt_bot.gpt_errors import GPTErrors, handle_gpt_errors
 from gpt_bot.main_keyboard import get_main_kb, get_translate_kb
 from gpt_bot import settings
