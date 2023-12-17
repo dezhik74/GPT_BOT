@@ -114,8 +114,7 @@ async def create_answer(msg_for_answer: types.Message, user_id: int, question_te
                     begin_time = current_time
 
         # добавляем теги pre, если в ответе есть код
-        # убираем - вроде как клиент телеги стал сам форматировать
-        # answer = pre_tag(answer)
+        answer = pre_tag(answer)
 
         # добавление кнопки перевода на русский язык
         answer_reply_markup = None if russian_letters_percent(answer) > 50 else get_translate_kb()
